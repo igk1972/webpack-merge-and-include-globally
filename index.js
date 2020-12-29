@@ -23,9 +23,9 @@ class MergeIntoFile {
     if (compiler.hooks) {
       if (webpackMajorVersion < 5) {
         compiler.hooks.emit.tapAsync(plugin, this.run.bind(this));
-      } else {      
+      } else {
         compiler.hooks.compilation.tap(plugin, this.run.bind(this));
-        compiler.hooks.failed.tap(plugin, error => {
+        compiler.hooks.failed.tap(plugin, (error) => {
           throw new Error(error);
         });
       }
@@ -59,10 +59,10 @@ class MergeIntoFile {
       transformFileName,
     } = this.options;
     if (chunks && compilation.chunks && compilation.chunks
-      .filter(chunk => chunks.indexOf(chunk.name) >= 0 && chunk.rendered).length === 0) {
-        if (typeof(callback) === 'function') {
-          callback();
-        }
+      .filter((chunk) => chunks.indexOf(chunk.name) >= 0 && chunk.rendered).length === 0) {
+      if (typeof (callback) === 'function') {
+        callback();
+      }
       return;
     }
     const generatedFiles = {};
@@ -80,7 +80,7 @@ class MergeIntoFile {
     filesCanonical.forEach((fileTransform) => {
       if (typeof fileTransform.dest === 'string') {
         const destFileName = fileTransform.dest;
-        fileTransform.dest = code => ({ // eslint-disable-line no-param-reassign
+        fileTransform.dest = (code) => ({ // eslint-disable-line no-param-reassign
           [destFileName]: (transform && transform[destFileName])
             ? transform[destFileName](code)
             : code,
@@ -88,17 +88,17 @@ class MergeIntoFile {
       }
     });
     const finalPromises = filesCanonical.map(async (fileTransform) => {
-      const { separator = '\n'} = this.options;
-      const listOfLists = await Promise.all(fileTransform.src.map(path => listFiles(path, null)));
+      const { separator = '\n' } = this.options;
+      const listOfLists = await Promise.all(fileTransform.src.map((path) => listFiles(path, null)));
       const flattenedList = Array.prototype.concat.apply([], listOfLists);
-      const filesContentPromises = flattenedList.map(path => readFile(path, encoding || 'utf-8'));
+      const filesContentPromises = flattenedList.map((path) => readFile(path, encoding || 'utf-8'));
       const content = await joinContent(filesContentPromises, separator);
       const resultsFiles = await fileTransform.dest(content);
-      for (const resultsFile in resultsFiles) {
+      Object.keys(resultsFiles).map(async (resultsFile) => {
         if (typeof resultsFiles[resultsFile] === 'object') {
           resultsFiles[resultsFile] = await resultsFiles[resultsFile];
         }
-      }
+      });
       Object.keys(resultsFiles).forEach((newFileName) => {
         let newFileNameHashed = newFileName;
         const hasTransformFileNameFn = typeof transformFileName === 'function';
@@ -114,7 +114,7 @@ class MergeIntoFile {
 
             newFileNameHashed = transformFileName(fileNameBase, extension, hashPart);
           } else {
-            newFileNameHashed = newFileName.replace(/(\.min)?\.\w+(\.map)?$/, suffix => `-${hashPart}${suffix}`);
+            newFileNameHashed = newFileName.replace(/(\.min)?\.\w+(\.map)?$/, (suffix) => `-${hashPart}${suffix}`);
           }
 
           const fileId = newFileName.replace(/\.map$/, '').replace(/\.\w+$/, '');
@@ -127,7 +127,18 @@ class MergeIntoFile {
           }
         }
         generatedFiles[newFileName] = newFileNameHashed;
-        if (webpackMajorVersion < 5) {
+        if (compilation.hooks) {
+          const { sources, Compilation } = require('webpack'); // eslint-disable-line global-require
+          compilation.hooks.processAssets.tap(
+            {
+              name: plugin.name,
+              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(newFileNameHashed, new sources.RawSource(resultsFiles[newFileName]));
+            },
+          );
+        } else {
           compilation.assets[newFileNameHashed] = { // eslint-disable-line no-param-reassign
             source() {
               return resultsFiles[newFileName];
@@ -136,17 +147,6 @@ class MergeIntoFile {
               return resultsFiles[newFileName].length;
             },
           };
-        } else {
-          const { sources, Compilation } = require('webpack');
-          compilation.hooks.processAssets.tap(
-            {
-              name: plugin.name,
-              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
-            },
-            () => { 
-              compilation.emitAsset(newFileNameHashed, new sources.RawSource(resultsFiles[newFileName]))
-            }
-          );
         }
       });
     });
@@ -156,12 +156,12 @@ class MergeIntoFile {
         if (this.onComplete) {
           this.onComplete(generatedFiles);
         }
-        if (typeof(callback) === 'function') {
+        if (typeof (callback) === 'function') {
           callback();
         }
       })
-      .catch(error => {
-        if (typeof(callback) === 'function') {
+      .catch((error) => {
+        if (typeof (callback) === 'function') {
           callback(error);
         } else {
           throw new Error(error);

@@ -8,5 +8,8 @@
     "jest": true,
     "es6": true
   },
-  "extends": "airbnb-base"
+  "extends": "airbnb-base",
+  "rules": {
+    "max-len": ["error", { "code": 120 }]
+  }
 }
